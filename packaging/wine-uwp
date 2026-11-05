@@ -76,6 +76,12 @@ case $cmd in
         if [ -e "$data/logs/.$app.stop" ]; then rm -f "$data/logs/.$app.stop"; "$bin/wineserver" -k; fi
         sleep 1
       done ) &
+    # before-start.sh in the app's folder: this install's own step, e.g. a mod's updater. No terminal when started
+    # from a menu, so it gets no input; its output goes to a log, and it can't stop the app.
+    if [ -f "$data/stage/$app/before-start.sh" ]; then
+      bash "$data/stage/$app/before-start.sh" < /dev/null > "$data/logs/$app-before-start.log" 2>&1 9>&- ||
+        echo "before-start.sh failed: see $data/logs/$app-before-start.log" >&2
+    fi
     # keep the screen awake while the app runs (inhibit-idle.py: on Windows a controller counts as user activity,
     # Linux desktops don't see it). It runs run.sh, keeping this pid, so the watcher above still sees the app.
     UWP_STAGE=$app UWP_TIMEOUT=0 UWP_LOG="$data/logs/$app.log" \
