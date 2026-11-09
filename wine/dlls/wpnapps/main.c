@@ -20,8 +20,8 @@
  */
 
 /*
- * There is no Windows Push Notification Service here, but an app's channel request must not fail: Phantom Dust asks
- * for one in a PPL task at start-up, and CLASS_E_CLASSNOTAVAILABLE became an unobserved task exception, which
+ * There is no Windows Push Notification Service here, but an app's channel request must not fail: apps ask for one
+ * in a PPL task at start-up, and CLASS_E_CLASSNOTAVAILABLE became an unobserved task exception, which
  * ppltasks.h turns into a __debugbreak in the app. So CreatePushNotificationChannelForApplicationAsync answers an
  * operation that is complete when handed out, with a channel whose URI no notification will ever arrive on. Its
  * PushNotificationReceived and the manager's ChannelsRevoked registrations are accepted and never raised. The layout

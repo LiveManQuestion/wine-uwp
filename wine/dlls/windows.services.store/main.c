@@ -34,9 +34,9 @@
  *
  * GetStoreProductsAsync, GetAssociatedStoreProductsAsync and GetUserCollectionAsync complete with an empty product
  * list whose ExtendedError is 0x80072efd, what Windows reports when the Store can't be reached: nothing can be bought
- * through the Store here. Phantom Dust's in-game shop lists the Store add-ons first. An E_NOTIMPL from the method was
- * an error dialog; an empty list with S_OK took a path the game never meets on Windows (its shop always has add-ons)
- * and left a shop B could not leave. With the error it shows its own "unable to complete the action" message and the
+ * through the Store here. A game's in-game shop seen listing the Store add-ons first got an error dialog from an
+ * E_NOTIMPL; an empty list with S_OK took a path it never meets on Windows (its shop always has add-ons) and left a
+ * shop the player could not leave. With the error it shows its own "unable to complete the action" message and the
  * shop closes as usual.
  */
 

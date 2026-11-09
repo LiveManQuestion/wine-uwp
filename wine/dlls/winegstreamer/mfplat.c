@@ -280,7 +280,7 @@ static IMFMediaType *mf_media_type_from_wg_format_video(const struct wg_format *
                 };
 
                 /* Windows' decoders always give the display aperture, and games size their video textures from
-                 * it (Phantom Dust); without padding it is the whole frame */
+                 * it; without padding it is the whole frame */
                 IMFMediaType_SetBlob(type, &MF_MT_MINIMUM_DISPLAY_APERTURE,
                         (BYTE *)&aperture, sizeof(aperture));
                 if (!format->u.video.padding.left && !format->u.video.padding.right

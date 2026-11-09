@@ -20,8 +20,8 @@
  * D3D11 video processing: the enumerator, the processor, its input and output views, and VideoProcessorBlt.
  *
  * Games that decode video through a Source Reader with a DXGI device manager get NV12 textures and convert them
- * with VideoProcessorBlt; on Windows every GPU has a video processor, so they do not check for one. Phantom Dust
- * draws its movies this way and dereferences the output texture whether or not the Blt worked.
+ * with VideoProcessorBlt; on Windows every GPU has a video processor, so they do not check for one. A UWP
+ * game seen drawing its movies this way dereferences the output texture whether or not the Blt worked.
  *
  * The Blt runs on the CPU through the immediate context: the input subresource is copied to a staging texture and
  * mapped, converted (NV12 or 8-bit RGB, nearest-neighbour scaling, BT.601 below 720 lines and BT.709 from there,
