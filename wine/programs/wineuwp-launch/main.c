@@ -37,11 +37,14 @@
  *      ours.
  *
  * local.env, same format and optional, is read last on both paths, so what it sets wins: settings that belong to this
- * install rather than to the package (install-app.py keeps it across updates). One is WINE_UWP_INJECT,
- * "DLL!EXPORT[;DLL!EXPORT...]" with DLL relative to the stage: the app starts suspended, each DLL is loaded into it
- * by a remote LoadLibraryW thread, then EXPORT (a thread start routine) runs there, and the app is resumed - what a
- * mod's launcher does on Windows through the package debugger (Phantom Dust Rebirth's pdlaunch.exe with
- * pdnet.dll!PdInjectedInit), which Wine doesn't have. The app is resumed even when a step fails.
+ * install rather than to the package (install-app.py keeps it across updates).
+ *
+ * WINE_UWP_INJECT, "DLL!EXPORT[;DLL!EXPORT...]", is general DLL injection, for mods: the app starts suspended, each
+ * DLL is loaded into it by a remote LoadLibraryW thread, then EXPORT (a thread start routine, called with NULL) runs
+ * there, and the app is resumed. On Windows a mod's launcher does the same through the package debugger, which Wine
+ * doesn't have. The code runs with the app's full rights, so it is off unless set, and each DLL must be inside the
+ * stage directory (a relative path, without ".."); an entry that isn't is skipped.
+ * The app is resumed even when a step fails.
  *
  *   wineuwp-launch.exe [--stage DIR] [--defaults FILE] [--graphics DRIVER] [--exe EXE] [args...]
  *
@@ -186,6 +189,25 @@ static HMODULE find_remote_module( HANDLE process, const WCHAR *path )
     return NULL;
 }
 
+/* The full path of a file inside the stage directory named by a relative path, or FALSE if it isn't one: absolute
+ * paths and ".." are refused. (Unix links aren't followed: whoever can make one in the stage can as well put the DLL
+ * itself there, and Wine doesn't show them to Windows code anyway.) */
+static BOOL stage_path( const WCHAR *spec, WCHAR *path, DWORD size )
+{
+    WCHAR joined[MAX_PATH];
+    const WCHAR *p;
+    size_t len = wcslen( dir );
+
+    if (!spec[0] || spec[0] == '\\' || spec[0] == '/' || wcschr( spec, ':' )) return FALSE;
+    for (p = spec; *p; p++)
+        if (p[0] == '.' && p[1] == '.' && (p == spec || p[-1] == '\\' || p[-1] == '/') &&
+            (!p[2] || p[2] == '\\' || p[2] == '/'))
+            return FALSE;
+    if (swprintf( joined, ARRAY_SIZE(joined), L"%s\\%s", dir, spec ) < 0) return FALSE;
+    if (!GetFullPathNameW( joined, size, path, NULL )) return FALSE;
+    return !wcsnicmp( path, dir, len ) && path[len] == '\\';
+}
+
 /* one "DLL!EXPORT" of WINE_UWP_INJECT into the suspended app */
 static void inject( HANDLE process, WCHAR *spec )
 {
@@ -203,8 +225,11 @@ static void inject( HANDLE process, WCHAR *spec )
         return;
     }
     *export++ = 0;
-    if (spec[0] == '\\' || (spec[0] && spec[1] == ':')) lstrcpynW( path, spec, ARRAY_SIZE(path) );
-    else swprintf( path, ARRAY_SIZE(path), L"%s\\%s", dir, spec );
+    if (!stage_path( spec, path, ARRAY_SIZE(path) ))
+    {
+        fprintf( stderr, "wineuwp-launch: WINE_UWP_INJECT: %ls is not a relative path inside the stage directory; skipped\n", spec );
+        return;
+    }
     WideCharToMultiByte( CP_ACP, 0, export, -1, name, sizeof(name), NULL, NULL );
 
     /* the export's offset is the same in both copies: find it in a local one loaded as an image only */
