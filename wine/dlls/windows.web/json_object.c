@@ -153,8 +153,21 @@ static ULONG WINAPI json_object_Release( IJsonObject *iface )
 
 static HRESULT WINAPI json_object_GetIids( IJsonObject *iface, ULONG *iid_count, IID **iids )
 {
-    FIXME( "iface %p, iid_count %p, iids %p stub!\n", iface, iid_count, iids );
-    return E_NOTIMPL;
+    /* the interfaces JsonObject implements besides IInspectable, as the metadata lists them */
+    static const IID *const list[] =
+    {
+        &IID_IJsonObject, &IID_IJsonValue, &IID_IMap_HSTRING_IJsonValue,
+        &IID_IIterable_IKeyValuePair_HSTRING_IJsonValue, &IID_IJsonObjectWithDefaultValues_, &IID_IStringable,
+    };
+    ULONG i;
+
+    TRACE( "iface %p, iid_count %p, iids %p.\n", iface, iid_count, iids );
+
+    if (!iid_count || !iids) return E_POINTER;
+    if (!(*iids = CoTaskMemAlloc( sizeof(list) / sizeof(*list) * sizeof(IID) ))) return E_OUTOFMEMORY;
+    for (i = 0; i < ARRAY_SIZE(list); i++) (*iids)[i] = *list[i];
+    *iid_count = ARRAY_SIZE(list);
+    return S_OK;
 }
 
 static HRESULT WINAPI json_object_GetRuntimeClassName( IJsonObject *iface, HSTRING *class_name )
