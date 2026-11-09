@@ -1455,17 +1455,21 @@ static HRESULT do_activate_protocol( struct registrar *reg, const WCHAR *uri )
  * never gets to the end of that wait: the process lifetime manager terminates the app (PsmShutdownApplication /
  * HamTerminateSelfEx). Here nothing does, and a view thread twinapi parked in
  * CoreApplicationViewAgileContainer::WaitForViewReady at start-up never returns, so the process stayed alive with
- * no window and its audio still playing (Phantom Dust's "End Game"). Stand in for the lifetime manager: when the
+ * no window and its audio still playing (a game's "End Game"). Stand in for the lifetime manager: when the
  * hosted CoreWindow is destroyed (core_window_subclass_proc), its thread ends (which frees the window without a
  * WM_NCDESTROY) or CoreApplication.Exiting is raised, wait a moment, and if the app has no window left by then, end
- * the process. */
+ * the process.
+ *
+ * It applies to every window of the process, so an app that keeps running without its CoreWindow (hosted views,
+ * windowed popups, a launcher that hands over to a game) would be ended too. It is off unless
+ * WINE_UWP_EXIT_WITH_WINDOW=1 is set, e.g. in the stage's local.env, for an app known to need it. */
 DEFINE_GUID(IID_ICoreApplicationExit_local, 0xcf86461d, 0x261e, 0x4b72, 0x9a, 0xcd, 0x44, 0xed, 0x2a, 0xce, 0x6a, 0x29);
 DEFINE_GUID(IID_IEventHandler_IInspectable, 0xc50898f6, 0xc536, 0x5f47, 0x85, 0x83, 0x8b, 0x2c, 0x24, 0x38, 0xa1, 0x3b);
 
 #define APP_EXIT_GRACE_MS 3000
 
-/* A message box or dialog (MessageDialog's, class #32770) doesn't count: on Windows it goes with the app. Phantom
- * Dust closed with its Store error still up kept running behind that dialog. */
+/* A message box or dialog (MessageDialog's, class #32770) doesn't count: on Windows it goes with the app. A game
+ * closed with an error message still up kept running behind that dialog. */
 static BOOL CALLBACK find_visible_app_window( HWND hwnd, LPARAM lparam )
 {
     WCHAR class_name[16];
@@ -1504,9 +1508,19 @@ static DWORD WINAPI app_exit_thread( void *arg )
     return 0;
 }
 
+/* WINE_UWP_EXIT_WITH_WINDOW=1 turns the watchdog on (see above) */
+static BOOL exit_with_window( void )
+{
+    WCHAR buf[8];
+
+    return GetEnvironmentVariableW( L"WINE_UWP_EXIT_WITH_WINDOW", buf, ARRAY_SIZE(buf) ) && !wcscmp( buf, L"1" );
+}
+
 static void start_app_exit_watchdog( void )
 {
     HANDLE thread;
+
+    if (!exit_with_window()) return;
 
     if ((thread = CreateThread( NULL, 0, app_exit_thread, NULL, 0, NULL ))) CloseHandle( thread );
 }
@@ -1627,8 +1641,11 @@ static HRESULT do_activate(struct registrar *reg)
         if (!core_window) WARN("no core window in this process to show\n");
         drive_view_startup( args );
         start_activation_inbox( reg );
-        watch_app_exit();
-        watch_view_thread();
+        if (exit_with_window())
+        {
+            watch_app_exit();
+            watch_view_thread();
+        }
     }
 
     IInspectable_Release(args);
